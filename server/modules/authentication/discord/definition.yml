@@ -23,3 +23,8 @@ props:
     title: Server ID
     hint: Optional - Your unique server identifier, such that only members are authorized
     order: 3
+  botToken:
+    type: String
+    title: Bot Token Secret
+    hint: Optional - Bot token which has access to your server to match server nicknames and groups
+    order: 4

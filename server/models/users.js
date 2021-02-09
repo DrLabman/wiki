@@ -225,6 +225,12 @@ module.exports = class User extends Model {
       })
     }
 
+    // Parse group names
+    let groupNames = []
+    if (profile.groups && profile.groups.length > 0) {
+      groupNames = profile.groups
+    }
+
     // Update existing user
     if (user) {
       if (!user.isActive) {
@@ -242,6 +248,27 @@ module.exports = class User extends Model {
 
       if (pictureUrl === 'internal') {
         await WIKI.models.users.updateUserAvatarData(user.id, profile.picture)
+      }
+
+      if (groupNames.length > 0) {
+        // update groups from auth profile details
+        const groups = await WIKI.models.groups.query()
+          .select('*')
+          .whereIn('name', profile.groups)
+        const groupIds = groups.map((group) => group.id)
+
+        const usrGroupsRaw = await user.$relatedQuery('groups')
+        const usrGroups = _.map(usrGroupsRaw, 'id')
+        // Relate added groups
+        const addUsrGroups = _.difference(groupIds, usrGroups)
+        for (const grp of addUsrGroups) {
+          await user.$relatedQuery('groups').relate(grp)
+        }
+        // Unrelate removed groups
+        const remUsrGroups = _.difference(usrGroups, groupIds)
+        for (const grp of remUsrGroups) {
+          await user.$relatedQuery('groups').unrelate().where('groupId', grp)
+        }
       }
 
       return user
@@ -273,7 +300,14 @@ module.exports = class User extends Model {
       })
 
       // Assign to group(s)
-      if (provider.autoEnrollGroups.length > 0) {
+      if (groupNames.length > 0) {
+        // if provider gave dynamic groups, use them
+        const groups = await WIKI.models.groups.query()
+          .select('*')
+          .whereIn('name', profile.groups)
+        const groupIds = groups.map((group) => group.id)
+        await user.$relatedQuery('groups').relate(groupIds)
+      } else if (provider.autoEnrollGroups.length > 0) {
         await user.$relatedQuery('groups').relate(provider.autoEnrollGroups)
       }
 
